@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import {StyleSheet,Text,View,TextInput,Image,Button,ScrollView,FlatList,TouchableOpacity,} from 'react-native';
+import {Modal, StyleSheet,Text,View,TextInput,Image,Button,ScrollView,FlatList,TouchableOpacity,} from 'react-native';
 import logoutButton from './assets/icons/logout.png'; 
 import { useRoute } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function HomeScreen({ navigation }) {
+  const [isModalVisible, setIsModalVisible] = useState(false);  
+  const [selectedBillImage, setSelectedBillImage] = useState(null);
+  const [billImage, setBillImage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expenses, setExpenses] = useState([]);
   const [description, setDescription] = useState('');
@@ -17,6 +21,10 @@ export default function HomeScreen({ navigation }) {
   const route = useRoute();
   const selectedFriend = route.params?.selectedFriend;
 
+  const openModal = (imageUri) => {
+  setSelectedBillImage(imageUri);
+  setIsModalVisible(true);
+  };
 
   const addExpense = () => {
     if (description && amount && payer && splitWith) {
@@ -27,15 +35,30 @@ export default function HomeScreen({ navigation }) {
         payer,
         splitWith: splitWith.split(',').map((friend) => friend.trim()),
         date: new Date(),
+        billImage,
       };
       setExpenses([...expenses, newExpense]);
       setDescription('');
       setAmount('');
       setPayer('');
       setSplitWith('');
+      setBillImage(null);
       setTotalExpenses(totalExpenses + newExpense.amount);
       setIsSortButtonDisabled(false);
      
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.cancelled) {
+      setBillImage(result.uri);
     }
   };
 
@@ -152,6 +175,10 @@ const clearInputFields = () => {
      
        <View style={styles.space}/>
       <View style={styles.inputContainer}>
+
+        <Button title="Pick an image from camera roll" onPress={pickImage} />
+        {billImage && <Image source={{ uri: billImage }} style={styles.billImage} />}
+
         <TextInput
           style={styles.input}
           placeholder='Description'
@@ -220,6 +247,11 @@ const clearInputFields = () => {
               <Text>Paid by: {item.payer}</Text>
               <Text>Split with: {item.splitWith.join(', ')}</Text>
               <Text>Date: {item.date.toLocaleDateString()}</Text>
+              {item.billImage && (
+                <TouchableOpacity onPress={() => openModal(item.billImage)}>
+                  <Image source={{ uri: item.billImage }} style={styles.billImage} />
+                </TouchableOpacity>
+              )}
               <TouchableOpacity
                 style={styles.shareButton}
                 onPress={() => shareExpense(item)}
@@ -232,6 +264,7 @@ const clearInputFields = () => {
               >
                 <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
+              
             </View>
           )}
         />
@@ -239,7 +272,30 @@ const clearInputFields = () => {
           Total Expenses: ${totalExpenses.toFixed(2)}
         </Text>
       </View>
-      
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isModalVisible}
+        onRequestClose={() => {
+          setIsModalVisible(!isModalVisible);
+        }}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            {selectedBillImage && (
+              <Image source={{ uri: selectedBillImage }} style={styles.modalImage} />
+            )}
+            <TouchableOpacity
+              style={[styles.button, styles.buttonClose]}
+              onPress={() => setIsModalVisible(!isModalVisible)}
+            >
+              <Text style={styles.textStyle}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 }
@@ -347,5 +403,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 5,
     borderRadius: 5,
+  },
+  billImage: {
+    width: 100,
+    height: 100,
+    marginTop: 10,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 22
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 35,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2
+  },
+  buttonClose: {
+    backgroundColor: "#2196F3",
+  },
+  textStyle: {
+    color: "white",
+    fontWeight: "bold",
+    textAlign: "center"
+  },
+  modalImage: {
+    width: 300,
+    height: 300,
+    marginBottom: 15,
   },
 });
